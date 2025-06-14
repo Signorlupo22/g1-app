@@ -1,4 +1,5 @@
 import { BleManager, Characteristic, Device, State } from 'react-native-ble-plx';
+import { SCREEN_STATUS } from './glasses';
 
 // Types
 export interface GlassesDeviceInfo {
@@ -371,23 +372,118 @@ export class EvenRealitiesG1Manager {
 
     await this.sendCommand(command, true, false); // Send to left arm only
   }
+  
 
-  async sendText(text: string, screenStatus: number = 1, currentPage: number = 1, totalPages: number = 1): Promise<void> {
+  private splitTextIntoLines(text: string): string[] {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+
+      // Rough character width calculation based on display width and font size
+      if (testLine.length * (21 * 0.6) <= 488) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          lines.push(word);
+        }
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
+  }
+  private splitIntoScreens(lines: string[]): string[][] {
+    const screens: string[][] = [];
+
+    for (let i = 0; i < lines.length; i += 5) {
+      screens.push(lines.slice(i, i + 5));
+    }
+
+    return screens;
+  }
+
+  private createTextPackets(lines: string[]): Uint8Array[] {
+    const packets: Uint8Array[] = [];
+    const text = lines.join('\n');
     const textBytes = new TextEncoder().encode(text);
-    const command = new Uint8Array(9 + textBytes.length);
-    
-    command[0] = COMMANDS.SEND_TEXT;
-    command[1] = this.sequenceNumber++ & 0xFF;
-    command[2] = 1; // Fixed value
-    command[3] = 0; // Fixed value
-    command[4] = screenStatus;
-    command[5] = 0; // Fixed value
-    command[6] = 0; // Fixed value
-    command[7] = currentPage;
-    command[8] = totalPages;
-    command.set(textBytes, 9);
 
-    await this.sendCommand(command);
+    for (let i = 0; i < textBytes.length; i += 194 - 10) { // Reserve space for headers
+      const chunk = textBytes.slice(i, i + 194 - 10);
+      packets.push(chunk);
+    }
+
+    return packets;
+  }
+
+  private createTextPacket(
+    data: Uint8Array,
+    currentPacket: number,
+    totalPackets: number,
+    currentPage: number,
+    maxPages: number
+  ): Uint8Array {
+    const sequence = this.sequenceNumber++;
+    const newScreen = SCREEN_STATUS.NEW_CONTENT | SCREEN_STATUS.TEXT_SHOW;
+
+    const header = new Uint8Array([
+      COMMANDS.SEND_TEXT,
+      sequence,
+      totalPackets,
+      currentPacket,
+      newScreen,
+      0, // new_char_pos0
+      0, // new_char_pos1
+      currentPage,
+      maxPages
+    ]);
+
+    const result = new Uint8Array(header.length + data.length);
+    result.set(header);
+    result.set(data, header.length);
+    return result;
+  }
+
+  async sendText(text: string): Promise<boolean> {
+    if (!this.isConnected) return false;
+    console.log('Sending text:', text);
+    try {
+      const textLines = this.splitTextIntoLines(text);
+      const screens = this.splitIntoScreens(textLines);
+
+      for (let screenIndex = 0; screenIndex < screens.length; screenIndex++) {
+        const packets = this.createTextPackets(screens[screenIndex]);
+
+        for (let packetIndex = 0; packetIndex < packets.length; packetIndex++) {
+          const packet = this.createTextPacket(
+            packets[packetIndex],
+            packetIndex,
+            packets.length,
+            screenIndex,
+            screens.length
+          );
+
+          await this.sendCommand(packet);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Delay between screens
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to send text:', error);
+      return false;
+    }
   }
 
   async setBrightness(brightness: number, autoMode: boolean = false): Promise<void> {
