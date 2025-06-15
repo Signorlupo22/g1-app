@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { BMPImageData } from '../contoller/glasses';
 import { BatteryInfo, EvenRealitiesG1Manager, GlassesDeviceInfo, NotificationData } from '../contoller/glasses2';
 
 const G1GlassesApp: React.FC = () => {
@@ -21,7 +22,7 @@ const G1GlassesApp: React.FC = () => {
     const [selectedRight, setSelectedRight] = useState<string | null>(null);
     const [batteryLeft, setBatteryLeft] = useState<BatteryInfo | null>(null);
     const [batteryRight, setBatteryRight] = useState<BatteryInfo | null>(null);
-    const [textToSend, setTextToSend] = useState('Hello from React Native!');
+    const [textToSend, setTextToSend] = useState('Hello from React Native!, aisudha sdijhasidh aidjhasjdha kjashdkasjdhasdkajsdh aksdjhaskdjhasdkajshd aksjdh askdjhasd ka sdkajsdhaksdhhasd aksdjhhaskdjh ');
     const [brightness, setBrightness] = useState(20);
     const [events, setEvents] = useState<string[]>([]);
 
@@ -172,7 +173,7 @@ const G1GlassesApp: React.FC = () => {
         if (!g1Manager.current || !isConnected) return;
 
         try {
-            await g1Manager.current.sendText(textToSend);
+            await g1Manager.current.sendText(textToSend, 10);
         } catch (error) {
             console.error('Send text failed:', error);
             Alert.alert('Error', 'Failed to send text');
@@ -260,6 +261,16 @@ const G1GlassesApp: React.FC = () => {
         </View>
     );
 
+    const sendBMP = async () => {
+        if (!g1Manager.current || !isConnected) return;
+        const imageData: BMPImageData = {
+            width: 488,
+            height: 100,
+            data: new Uint8Array(require('../../assets/images/test.bmp'))
+        };
+        await g1Manager.current.sendBMPImage(imageData);
+    };
+
     return (
         <SafeAreaView>
             <ScrollView>
@@ -327,6 +338,12 @@ const G1GlassesApp: React.FC = () => {
                     silentMode();
                 }}
                     title="Silent mode"
+                />
+
+                <Button onPress={() => {
+                    sendBMP();
+                }}
+                    title="Send BMP"
                 />
 
                 <Button onPress={() => {

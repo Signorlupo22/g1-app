@@ -1,5 +1,6 @@
+import { Buffer } from 'buffer';
 import { BleManager, Characteristic, Device, State } from 'react-native-ble-plx';
-import { SCREEN_STATUS } from './glasses';
+import { BMPImageData, SCREEN_STATUS } from './glasses';
 
 // Types
 export interface GlassesDeviceInfo {
@@ -64,7 +65,10 @@ const COMMANDS = {
   SEND_DASHBOARD_LOCK: 0x50,
   GET_AUDIO_RECORDING: 0xF1,
   SET_DEBUG_MODE: 0xF4,
-  DEVICE_EVENTS: 0xF5
+  DEVICE_EVENTS: 0xF5,
+  BMP_TRANSMISSION_END: [0x20, 0x0d, 0x0e],
+  CRC_CHECK: 0x16,
+
 };
 
 // Response constants
@@ -452,7 +456,7 @@ export class EvenRealitiesG1Manager {
     return result;
   }
 
-  async sendText(text: string): Promise<boolean> {
+  async sendText(text: string, position: number = 0): Promise<boolean> {
     if (!this.isConnected) return false;
     console.log('Sending text:', text);
     try {
@@ -470,6 +474,10 @@ export class EvenRealitiesG1Manager {
             screenIndex,
             screens.length
           );
+
+          // Set position in header bytes 5-6
+          packet[5] = position & 0xFF; // LSB
+          packet[6] = (position >> 8) & 0xFF; // MSB
 
           await this.sendCommand(packet);
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -599,6 +607,111 @@ export class EvenRealitiesG1Manager {
       this.heartbeatInterval = null;
     }
   }
+
+
+  private calculateCRC32(data: Uint8Array): number {
+    // CRC32-XZ implementation
+    const polynomial = 0x04C11DB7;
+    let crc = 0xFFFFFFFF;
+
+    for (let i = 0; i < data.length; i++) {
+      crc ^= data[i] << 24;
+      for (let j = 0; j < 8; j++) {
+        if (crc & 0x80000000) {
+          crc = (crc << 1) ^ polynomial;
+        } else {
+          crc <<= 1;
+        }
+      }
+    }
+    return (~crc) >>> 0; // Convert to unsigned 32-bit
+}
+
+private createBMPPackets(imageData: Uint8Array): Buffer[] {
+    const packets: Buffer[] = [];
+
+    console.log('Creating BMP packets:', imageData);
+    const totalPackets = Math.ceil(imageData.length / 193);
+
+    for (let i = 0; i < imageData.length; i += 193) {
+      const chunk = imageData.slice(i, i + 193);
+      const packetIndex = Math.floor(i / 193);
+
+      if (packetIndex === 0) {
+        // First packet needs storage address
+        packets.push(Buffer.concat([
+          Buffer.from([COMMANDS.SEND_BITMAP, packetIndex & 0xff]), // Command and index
+          Buffer.from([0x00, 0x1c, 0x00, 0x00]), // Storage address
+          Buffer.from(chunk)
+        ]));
+      } else {
+        // Other packets just need command and index
+        packets.push(Buffer.concat([
+          Buffer.from([COMMANDS.SEND_BITMAP, packetIndex & 0xff]),
+          Buffer.from(chunk)
+        ]));
+      }
+    }
+
+    return packets;
+  }
+
+    // Image Transmission
+    async sendBMPImage(imageData: BMPImageData): Promise<boolean> {
+        if (!this.isConnected) return false;
+    
+        // Validate image width
+        if (imageData.width > 488) {
+          console.error('Image width exceeds display width limit of 488 pixels');
+          return false;
+        }
+    
+        try {
+            console.log('Creating BMP packets');
+            console.log('Image data length:', imageData.data.length);
+          const packets = this.createBMPPackets(imageData.data);
+
+          console.log('Sending BMP image:', packets.length);
+    
+          // Send packets sequentially - left side first, then right
+          for (let i = 0; i < packets.length; i++) {
+            // Send to left side and wait for acknowledgment
+            await this.sendCommand(packets[i], true, false);
+            
+            // After left side acknowledges, send to right side
+            await this.sendCommand(packets[i], false, true);
+            
+            await new Promise(resolve => setTimeout(resolve, )); // Small delay between packets
+          }
+    
+          // Send transmission end command - left then right
+          const endCommand = new Uint8Array(1);
+          endCommand[0] = COMMANDS.BMP_TRANSMISSION_END[0];
+          await this.sendCommand(endCommand, true, false);
+          await this.sendCommand(endCommand, false, true);
+    
+          // Send CRC check - left then right
+          const crc = this.calculateCRC32(imageData.data);
+          const crcCommand = new Uint8Array([COMMANDS.CRC_CHECK, ...this.uint32ToBytes(crc)]);
+          await this.sendCommand(crcCommand, true, false);
+          await this.sendCommand(crcCommand, false, true);
+    
+          return true;
+        } catch (error) {
+          console.error(error);
+          return false;
+        }
+      }
+
+      private uint32ToBytes(value: number): number[] {
+        return [
+          (value >>> 24) & 0xFF,
+          (value >>> 16) & 0xFF,
+          (value >>> 8) & 0xFF,
+          value & 0xFF
+        ];
+      }
+    
 
   // Utility methods
   private base64ToUint8Array(base64: string): Uint8Array {

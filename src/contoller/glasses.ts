@@ -80,7 +80,7 @@ export class SmartGlassesController {
   private readonly DISPLAY_WIDTH = 488;
   private readonly FONT_SIZE = 21;
   private readonly LINES_PER_SCREEN = 5;
-  private readonly PACKET_SIZE = 194;
+  private readonly PACKET_SIZE = 193;
   private readonly BMP_ADDRESS = [0x00, 0x1c, 0x00, 0x00];
 
   constructor() {
