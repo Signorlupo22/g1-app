@@ -161,7 +161,7 @@ export class EvenRealitiesG1Manager {
             };
             
             devices.set(device.id, deviceInfo);
-            console.log('Found G1 device:', deviceInfo);
+            console.log('Found G1 ' + (deviceInfo.isLeft ? 'left' : 'right') + ' device: ' + deviceInfo.name);
           }
         }
       });
@@ -456,44 +456,78 @@ export class EvenRealitiesG1Manager {
     return result;
   }
 
-  async sendText(text: string, position: number = 0): Promise<boolean> {
+  async sendText(text: string, x: number = 0, y: number = 0, replace: boolean): Promise<boolean> {
     if (!this.isConnected) return false;
     console.log('Sending text:', text);
-    try {
-      const textLines = this.splitTextIntoLines(text);
-      const screens = this.splitIntoScreens(textLines);
+    const lines = this.splitTextIntoLines(text);
+    console.log('Lines:', lines);
+    const screens = this.splitIntoScreens(lines);
+    console.log('Screens:', screens);
+    for (let screenIndex = 0; screenIndex < screens.length; screenIndex++) {
+      const packets = this.createTextPackets(screens[screenIndex]);
 
-      for (let screenIndex = 0; screenIndex < screens.length; screenIndex++) {
-        const packets = this.createTextPackets(screens[screenIndex]);
+      for (let packetIndex = 0; packetIndex < packets.length; packetIndex++) {
+        const screenStatus = replace ? 
+          SCREEN_STATUS.TEXT_SHOW : // Just show text without clearing
+          SCREEN_STATUS.NEW_CONTENT | SCREEN_STATUS.TEXT_SHOW; // Clear and show new text
 
-        for (let packetIndex = 0; packetIndex < packets.length; packetIndex++) {
-          const packet = this.createTextPacket(
-            packets[packetIndex],
-            packetIndex,
-            packets.length,
-            screenIndex,
-            screens.length
-          );
+        const packet = this.createTextPacket(
+          packets[packetIndex],
+          packetIndex,
+          packets.length,
+          screenIndex,
+          screens.length
+        );
 
-          // Set position in header bytes 5-6
-          packet[5] = position & 0xFF; // LSB
-          packet[6] = (position >> 8) & 0xFF; // MSB
+        // Override the screen status in the packet
+        packet[4] = screenStatus;
 
-          await this.sendCommand(packet);
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        packet[5] = x & 0xFF; // x position LSB
+        packet[6] = (x >> 8) & 0xFF; // x position MSB
+        packet[7] = y & 0xFF; // y position LSB
+        packet[8] = (y >> 8) & 0xFF; // y position MSB
 
-        // Delay between screens
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await this.sendCommand(packet);
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
 
-      return true;
-    } catch (error) {
-      console.error('Failed to send text:', error);
-      return false;
     }
+
+    return true;
   }
 
+  async sendLoadingAnimation(iterations: number = 5): Promise<void> {
+    if (!this.isConnected) return;
+
+    const frames = [
+      '/', '-', '\\', '|', 
+    ];
+
+    for (let i = 0; i < iterations; i++) {
+      for (const frame of frames) {
+        const packet = this.createTextPacket(
+          new TextEncoder().encode(frame),
+          0, // Single packet
+          1, // Total packets
+          0, // Single screen
+          1  // Total screens
+        );
+
+        // Set screen status to just show text without clearing
+        packet[4] = SCREEN_STATUS.TEXT_SHOW;
+
+        // Set x,y position to 100,100
+        packet[5] = 100 & 0xFF; // x LSB
+        packet[6] = (100 >> 8) & 0xFF; // x MSB  
+        packet[7] = 100 & 0xFF; // y LSB
+        packet[8] = (100 >> 8) & 0xFF; // y MSB
+
+        await this.sendCommand(packet);
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+    }
+  }
+    
   async setBrightness(brightness: number, autoMode: boolean = false): Promise<void> {
     const command = new Uint8Array(3);
     command[0] = COMMANDS.SET_BRIGHTNESS;
@@ -676,9 +710,11 @@ private createBMPPackets(imageData: Uint8Array): Buffer[] {
           // Send packets sequentially - left side first, then right
           for (let i = 0; i < packets.length; i++) {
             // Send to left side and wait for acknowledgment
+            console.log('Sending BMP packet to left side ' + i);
             await this.sendCommand(packets[i], true, false);
             
             // After left side acknowledges, send to right side
+            console.log('Sending BMP packet to right side ' + i);
             await this.sendCommand(packets[i], false, true);
             
             await new Promise(resolve => setTimeout(resolve, )); // Small delay between packets
@@ -695,7 +731,7 @@ private createBMPPackets(imageData: Uint8Array): Buffer[] {
           const crcCommand = new Uint8Array([COMMANDS.CRC_CHECK, ...this.uint32ToBytes(crc)]);
           await this.sendCommand(crcCommand, true, false);
           await this.sendCommand(crcCommand, false, true);
-    
+          console.log('BMP image sent successfully');
           return true;
         } catch (error) {
           console.error(error);
@@ -729,6 +765,53 @@ private createBMPPackets(imageData: Uint8Array): Buffer[] {
       binaryString += String.fromCharCode(bytes[i]);
     }
     return btoa(binaryString);
+  }
+
+  async getAudioRecording(sequence: number = 0): Promise<void> {
+    // Validate sequence number is in valid range
+    sequence = Math.max(0, Math.min(255, sequence));
+
+    const command = new Uint8Array(2);
+    command[0] = COMMANDS.GET_AUDIO_RECORDING; // 0xF1
+    command[1] = sequence; // Sequence number 0-255
+
+    // Send command to get audio data chunk for this sequence
+    await this.sendCommand(command);
+
+    // Note: Audio data will be received via notification callback
+    // The glasses will send back the audio data chunk corresponding 
+    // to this sequence number
+
+    // Create a promise that will resolve when we receive the audio data
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout waiting for audio data'));
+      }, 5000); // 5 second timeout
+
+      // Add one-time listener for audio data
+      const audioHandler = (data: any) => {
+        if (data.type === 'audio' && data.sequence === sequence) {
+          clearTimeout(timeout);
+          
+          // Convert audio data to base64
+          const audioBase64 = this.uint8ArrayToBase64(data.audioData);
+
+          // Save audio data
+          try {
+            // Save base64 audio data
+            localStorage.setItem(`audio_${sequence}`, audioBase64);
+            resolve();
+          } catch (error) {
+            reject(error); 
+          }
+
+          // Remove this one-time handler
+          this.onDeviceEventCallbacks = this.onDeviceEventCallbacks.filter(cb => cb !== audioHandler);
+        }
+      };
+
+      this.onDeviceEventCallbacks.push(audioHandler);
+    });
   }
 
   // Cleanup

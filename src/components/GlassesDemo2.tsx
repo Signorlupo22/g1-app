@@ -8,12 +8,12 @@ import {
     SafeAreaView,
     ScrollView,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
-import { BMPImageData } from '../contoller/glasses';
 import { BatteryInfo, EvenRealitiesG1Manager, GlassesDeviceInfo, NotificationData } from '../contoller/glasses2';
-
+//'┐ └ ┴ ┬ ├ ─ ┼ ┘ ┌'
 const G1GlassesApp: React.FC = () => {
     const [isScanning, setIsScanning] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
@@ -22,10 +22,17 @@ const G1GlassesApp: React.FC = () => {
     const [selectedRight, setSelectedRight] = useState<string | null>(null);
     const [batteryLeft, setBatteryLeft] = useState<BatteryInfo | null>(null);
     const [batteryRight, setBatteryRight] = useState<BatteryInfo | null>(null);
-    const [textToSend, setTextToSend] = useState('Hello from React Native!, aisudha sdijhasidh aidjhasjdha kjashdkasjdhasdkajsdh aksdjhaskdjhasdkajshd aksjdh askdjhasd ka sdkajsdhaksdhhasd aksdjhhaskdjh ');
+    const [textToSend, setTextToSend] = useState(
+        '┌────────────────────┬────────────────────┐\n' +
+        '│ hey this test│asdasdasd│\n' +
+        '├────────────────────┼────────────────────┤\n' +
+        '│ asdasdasd│ asdasdasdasd│'
+    );
     const [brightness, setBrightness] = useState(20);
     const [events, setEvents] = useState<string[]>([]);
-
+    const [x, setX] = useState(100);
+    const [y, setY] = useState(100);
+    
     const [isGlassesWorn, setIsGlassesWorn] = useState(false);
     const [isGlassesInBox, setIsGlassesInBox] = useState(false);
     const [isGlassesCharging, setIsGlassesCharging] = useState(false);
@@ -169,11 +176,11 @@ const G1GlassesApp: React.FC = () => {
         }
     };
 
-    const sendText = async () => {
+    const sendText = async (x: number, y: number) => {
         if (!g1Manager.current || !isConnected) return;
 
         try {
-            await g1Manager.current.sendText(textToSend, 10);
+            await g1Manager.current.sendText(textToSend, x, y, false);
         } catch (error) {
             console.error('Send text failed:', error);
             Alert.alert('Error', 'Failed to send text');
@@ -263,12 +270,41 @@ const G1GlassesApp: React.FC = () => {
 
     const sendBMP = async () => {
         if (!g1Manager.current || !isConnected) return;
-        const imageData: BMPImageData = {
-            width: 488,
-            height: 100,
-            data: new Uint8Array(require('../../assets/images/test.bmp'))
-        };
-        await g1Manager.current.sendBMPImage(imageData);
+        const width = 488;  // Match the display width
+        const height = 64;  // Example height
+        const imageData = new Uint8Array(width * height * 3); // RGB format
+      
+        // Fill with a test pattern - black and white stripes
+        for (let i = 0; i < imageData.length; i++) {
+          // Create vertical stripes every 8 pixels
+          const x = (i % width);
+          imageData[i] = (x % 16 < 8) ? 255 : 0; // White if x mod 16 < 8, black otherwise
+        }
+        await g1Manager.current.sendBMPImage({
+            width,
+            height,
+            data: imageData
+        });
+    };
+
+
+    const printEvents = () => {
+        if (!g1Manager.current || !isConnected) return;
+
+        g1Manager.current.onDeviceEvent((event) => {
+            console.log('Device Event:', event);
+            // Add event to state
+            setEvents(prev => [`${new Date().toLocaleTimeString()}: ${event.type}`, ...prev]);
+        });
+
+        g1Manager.current.onBatteryUpdate((battery, isLeft) => {
+            console.log('Battery Update:', battery, isLeft ? 'Left' : 'Right');
+            if (isLeft) {
+                setBatteryLeft(battery);
+            } else {
+                setBatteryRight(battery); 
+            }
+        });
     };
 
     return (
@@ -309,9 +345,28 @@ const G1GlassesApp: React.FC = () => {
                     <ThemedText>Is Glasses in Silent Mode: {isInSilentMode ? 'Silent Mode' : 'Not Silent Mode'}</ThemedText>
                     <ThemedText>Is Case Open: {isCaseOpen ? 'Open' : 'Closed'}</ThemedText> */}
                 </View>
-
+                <View>
+                    <TextInput
+                        placeholder="Enter text"
+                        value={textToSend}
+                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10,color: "white" }}
+                        onChangeText={setTextToSend}
+                    />
+                    <TextInput
+                        placeholder="Enter x"
+                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10,color: "white" }}
+                        value={x.toString()}
+                        onChangeText={(text) => setX(parseInt(text) || 0)}
+                    />
+                    <TextInput
+                        placeholder="Enter y"
+                        value={y.toString()}
+                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10,color: "white" }}
+                        onChangeText={(text) => setY(parseInt(text) || 0)}
+                    />
+                </View> 
                 <Button onPress={() => {
-                    sendText();
+                    sendText(x, y);
                 }}
                     title="Send text"
                 />
@@ -335,9 +390,16 @@ const G1GlassesApp: React.FC = () => {
                 />
 
                 <Button onPress={() => {
-                    silentMode();
+                    g1Manager.current?.sendLoadingAnimation(50);
                 }}
-                    title="Silent mode"
+                    title="Send loading animation"
+                />
+
+
+                <Button onPress={() => {
+                    g1Manager.current?.getAudioRecording();
+                }}
+                    title="Get audio recording"
                 />
 
                 <Button onPress={() => {
