@@ -748,7 +748,7 @@ private createBMPPackets(imageData: Uint8Array): Uint8Array[] {
       const bmpData = this.convertTo1BitBMP(imageData.data);
       console.log('Converted to 1-bit BMP, data length:', bmpData.length);
       
-      const packets = this.createBMPPackets(bmpData);
+      const packets = this.createBMPPackets(imageData.data);
       console.log('Created', packets.length, 'packets');
 
       // Send packets sequentially - left side first, then right
@@ -778,6 +778,33 @@ private createBMPPackets(imageData: Uint8Array): Uint8Array[] {
       return true;
     } catch (error) {
       console.error('Failed to send BMP:', error);
+      return false;
+    }
+  }
+
+
+  async showImage(imageData: BMPImageData): Promise<boolean> {
+    if (!this.isConnected) return false;
+
+    try {
+      // Send command to display the buffered image
+      const displayCommand = new Uint8Array([COMMANDS.SEND_BITMAP, 0x00, 0x00, 0x1c, 0x00, 0x00]);
+      await this.sendCommand(displayCommand, true, false);
+      await this.sendCommand(displayCommand, false, true);
+
+      console.log('Sending CRC check...');
+      // Calculate CRC including storage address
+      const bmpData = this.convertTo1BitBMP(imageData.data);
+      const crcData = new Uint8Array([0x00, 0x1c, 0x00, 0x00, ...bmpData]);
+      const crc = this.calculateCRC32(crcData);
+      const crcCommand = new Uint8Array([COMMANDS.CRC_CHECK, ...this.uint32ToBytes(crc)]);
+      await this.sendCommand(crcCommand, true, false);
+      await this.sendCommand(crcCommand, false, true);
+
+      console.log('Image display complete');
+      return true;
+    } catch (error) {
+      console.error('Failed to show image:', error);
       return false;
     }
   }

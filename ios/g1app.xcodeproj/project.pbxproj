@@ -11,6 +11,8 @@
 		145F9FC84A0457DCF44BF9DE /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9815307CF536F9644A0FC4 /* ExpoModulesProvider.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4E62CE7B5E6F24060A9A3BCF /* libPods-g1app.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8FE2B509F8CF6E8DA727805F /* libPods-g1app.a */; };
+		7EDE8B552E01A3110008B4B3 /* test.bmp in Resources */ = {isa = PBXBuildFile; fileRef = 7EDE8B542E01A3100008B4B3 /* test.bmp */; };
+		7EDE8B572E01A31E0008B4B3 /* test 2.bmp in Resources */ = {isa = PBXBuildFile; fileRef = 7EDE8B562E01A31E0008B4B3 /* test 2.bmp */; };
 		B53187E4F008C82C3AF7AB8C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8AEEF18D5CA79DB220277C6D /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
@@ -21,7 +23,9 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = g1app/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = g1app/Info.plist; sourceTree = "<group>"; };
 		7C9815307CF536F9644A0FC4 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-g1app/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		8AEEF18D5CA79DB220277C6D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = g1app/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7EDE8B542E01A3100008B4B3 /* test.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = test.bmp; sourceTree = "<group>"; };
+		7EDE8B562E01A31E0008B4B3 /* test 2.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = "test 2.bmp"; sourceTree = "<group>"; };
+		8AEEF18D5CA79DB220277C6D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = g1app/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		8FE2B509F8CF6E8DA727805F /* libPods-g1app.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-g1app.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = g1app/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
@@ -54,6 +58,7 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				8AEEF18D5CA79DB220277C6D /* PrivacyInfo.xcprivacy */,
+				7EDE8B542E01A3100008B4B3 /* test.bmp */,
 			);
 			name = g1app;
 			sourceTree = "<group>";
@@ -99,6 +104,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				ED1163D3F31785BD4E993827 /* Pods */,
 				2B86066F9397049CB2DF95AC /* ExpoModulesProviders */,
+				7EDE8B562E01A31E0008B4B3 /* test 2.bmp */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -128,7 +134,6 @@
 				F8DDB2FE258AAAFFFE1FB558 /* Pods-g1app.debug.xcconfig */,
 				DCFC252D0B6C8DC03C348606 /* Pods-g1app.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -166,8 +171,8 @@
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
+						DevelopmentTeam = 88W5BB6R94;
 						LastSwiftMigration = 1250;
-						DevelopmentTeam = "88W5BB6R94";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -198,6 +203,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
+				7EDE8B572E01A31E0008B4B3 /* test 2.bmp in Resources */,
+				7EDE8B552E01A3110008B4B3 /* test.bmp in Resources */,
 				B53187E4F008C82C3AF7AB8C /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -339,7 +346,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = g1app/g1app.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 88W5BB6R94;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -365,9 +375,6 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "88W5BB6R94";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Debug;
 		};
@@ -378,7 +385,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = g1app/g1app.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 88W5BB6R94;
 				INFOPLIST_FILE = g1app/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -398,9 +408,6 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "88W5BB6R94";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
 			};
 			name = Release;
 		};
@@ -459,10 +466,7 @@
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -517,10 +521,7 @@
 				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

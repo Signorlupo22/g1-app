@@ -1,7 +1,9 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Button } from '@/components/ui/button';
+import { Buffer } from 'buffer';
 
-import RNFS from 'react-native-fs';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -35,7 +37,7 @@ const G1GlassesApp: React.FC = () => {
     const [events, setEvents] = useState<string[]>([]);
     const [x, setX] = useState(100);
     const [y, setY] = useState(100);
-    
+
     const [isGlassesWorn, setIsGlassesWorn] = useState(false);
     const [isGlassesInBox, setIsGlassesInBox] = useState(false);
     const [isGlassesCharging, setIsGlassesCharging] = useState(false);
@@ -271,42 +273,78 @@ const G1GlassesApp: React.FC = () => {
         </View>
     );
 
-    
+    const loadBMPImageAsBase64 = async (uri: string) => {
+        try {
+          // Carica asset (anche da `require`)
+          const asset = Asset.fromModule(require('../../assets/images/test.bmp'));
+      
+          // Scarica l'asset in locale
+          await asset.downloadAsync();
+      
+          // asset.localUri sarà il file path leggibile da FileSystem
+          const localUri = asset.localUri;
+          if (!localUri) {
+            console.error('localUri non disponibile');
+            return;
+          }
+      
+          // Leggi come base64
+          const base64Data = await FileSystem.readAsStringAsync(localUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+      
+          console.log('✅ base64Data:', base64Data.slice(0, 50), '...');
+      
+          return base64Data;
+        } catch (err) {
+          console.error('❌ Errore caricamento BMP:', err);
+          return null;
+        }
+      };
+      
 
     const sendBMP = async () => {
         if (!g1Manager.current || !isConnected) return;
         const width = 576;
         const height = 136;
-      
-        const bmpPath = RNFS.MainBundlePath + '/test.bmp'; // iOS
-        // Su Android: usa `RNFS.DocumentDirectoryPath + '/test.bmp'` se copiato lì
-      
+
+        const imageDataBase64 = await loadBMPImageAsBase64('../../assets/images/test.bmp');
+
         try {
-          const imageDataBase64 = await RNFS.readFile(bmpPath, 'base64');
-          const buffer = Uint8Array.from(atob(imageDataBase64), c => c.charCodeAt(0));
-      
-          // Verifica intestazione BMP
-          if (buffer[0] !== 0x42 || buffer[1] !== 0x4D) {
-            console.error('Not a valid BMP file');
-            return;
-          }
-      
-          const imageData = buffer.slice(54); // dopo header
-          for (let i = 0; i < imageData.length; i++) {
-            const x = (i % width);
-            imageData[i] = (x % 16 < 8) ? 255 : 0;
-          }
-      
-          await g1Manager.current.sendBMPImage({
-            width,
-            height,
-            data: imageData
-          });
-      
+            const buffer = new Uint8Array(Buffer.from(imageDataBase64 || '', 'base64'));
+
+            await g1Manager.current.sendBMPImage({
+                width,
+                height,
+                data: buffer
+            });
+
         } catch (err) {
-          console.error('Errore lettura BMP:', err.message);
+            console.error('Errore lettura BMP:', err.message);
         }
-      };
+    };
+
+
+    const showImage = async () => {
+        if (!g1Manager.current || !isConnected) return;
+        const width = 576;
+        const height = 136;
+
+        const imageDataBase64 = await loadBMPImageAsBase64('../../assets/images/test.bmp');
+
+        try {
+            const buffer = new Uint8Array(Buffer.from(imageDataBase64 || '', 'base64'));
+
+            await g1Manager.current.showImage({
+                width,
+                height,
+                data: buffer
+            });
+
+        } catch (err) {
+            console.error('Errore lettura BMP:', err.message);
+        }
+    };
 
     const printEvents = () => {
         if (!g1Manager.current || !isConnected) return;
@@ -322,7 +360,7 @@ const G1GlassesApp: React.FC = () => {
             if (isLeft) {
                 setBatteryLeft(battery);
             } else {
-                setBatteryRight(battery); 
+                setBatteryRight(battery);
             }
         });
     };
@@ -332,14 +370,16 @@ const G1GlassesApp: React.FC = () => {
             <ScrollView>
                 {/* Connection Status */}
                 <View>
+
+                    <Image source={require('../../assets/images/test.bmp')} style={{ width: "100%", height: 80 }} />
                     {isConnected ?
                         <View style={{ flexDirection: 'column', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
                             <Image source={require('../../assets/images/glasses.png')} style={{ width: "100%", height: 200 }} />
                             <Text style={{ color: 'green', fontSize: 40, }}>Connected</Text>
                         </View>
-                        
-                        
-                        
+
+
+
                         : <View style={{ flexDirection: 'column', alignItems: 'center', width: '100%', justifyContent: 'center' }}>
                             <Image source={require('../../assets/images/glasses.png')} style={{ width: "100%", height: 200 }} />
                             <ThemedText style={{ color: 'red' }}>Disconnected</ThemedText>
@@ -369,22 +409,22 @@ const G1GlassesApp: React.FC = () => {
                     <TextInput
                         placeholder="Enter text"
                         value={textToSend}
-                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10,color: "white" }}
+                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10, color: "white" }}
                         onChangeText={setTextToSend}
                     />
                     <TextInput
                         placeholder="Enter x"
-                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10,color: "white" }}
+                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10, color: "white" }}
                         value={x.toString()}
                         onChangeText={(text) => setX(parseInt(text) || 0)}
                     />
                     <TextInput
                         placeholder="Enter y"
                         value={y.toString()}
-                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10,color: "white" }}
+                        style={{ width: 100, height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 10, color: "white" }}
                         onChangeText={(text) => setY(parseInt(text) || 0)}
                     />
-                </View> 
+                </View>
                 <Button onPress={() => {
                     sendText(x, y);
                 }}
@@ -427,6 +467,13 @@ const G1GlassesApp: React.FC = () => {
                 }}
                     title="Send BMP"
                 />
+
+                <Button onPress={() => {
+                    showImage();
+                }}
+                    title="Show image"
+                />
+
 
                 <Button onPress={() => {
                     disconnectFromGlasses();
