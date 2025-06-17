@@ -1,4 +1,3 @@
-import { Buffer } from 'buffer';
 import { BleManager, Characteristic, Device, State } from 'react-native-ble-plx';
 import { BMPImageData, SCREEN_STATUS } from './glasses';
 
@@ -644,10 +643,26 @@ export class EvenRealitiesG1Manager {
 
 
   private calculateCRC32(data: Uint8Array): number {
-    // CRC32-XZ implementation
+    // CRC32-XZ implementation for BMP data
     const polynomial = 0x04C11DB7;
     let crc = 0xFFFFFFFF;
 
+    // Storage address for BMP data is 0x001C0000
+    const storageAddress = new Uint8Array([0x00, 0x1C, 0x00, 0x00]);
+
+    // First calculate CRC for storage address
+    for (let i = 0; i < storageAddress.length; i++) {
+      crc ^= storageAddress[i] << 24;
+      for (let j = 0; j < 8; j++) {
+        if (crc & 0x80000000) {
+          crc = (crc << 1) ^ polynomial;
+        } else {
+          crc <<= 1;
+        }
+      }
+    }
+
+    // Then calculate CRC for the actual BMP data
     for (let i = 0; i < data.length; i++) {
       crc ^= data[i] << 24;
       for (let j = 0; j < 8; j++) {
@@ -658,96 +673,123 @@ export class EvenRealitiesG1Manager {
         }
       }
     }
-    return (~crc) >>> 0; // Convert to unsigned 32-bit
-}
 
-private createBMPPackets(imageData: Uint8Array): Buffer[] {
-    const packets: Buffer[] = [];
+    // Convert to big endian unsigned 32-bit
+    const result = (~crc) >>> 0;
+    return (result << 24) | ((result & 0xFF00) << 8) | ((result & 0xFF0000) >> 8) | (result >>> 24);
+  }
 
-    console.log('Creating BMP packets:', imageData);
-    const totalPackets = Math.ceil(imageData.length / 193);
+private createBMPPackets(imageData: Uint8Array): Uint8Array[] {
+    const packets: Uint8Array[] = [];
+    const chunkSize = 194 - 2; // 194 bytes total, minus 2 for command and index
 
-    for (let i = 0; i < imageData.length; i += 193) {
-      const chunk = imageData.slice(i, i + 193);
-      const packetIndex = Math.floor(i / 193);
+    for (let i = 0; i < imageData.length; i += chunkSize) {
+      const chunk = imageData.slice(i, i + chunkSize);
+      const packet = new Uint8Array(chunk.length + (i === 0 ? 6 : 2));
+      
+      packet[0] = COMMANDS.SEND_BITMAP;
+      packet[1] = Math.floor(i / chunkSize) & 0xFF;
 
-      if (packetIndex === 0) {
-        // First packet needs storage address
-        packets.push(Buffer.concat([
-          Buffer.from([COMMANDS.SEND_BITMAP, packetIndex & 0xff]), // Command and index
-          Buffer.from([0x00, 0x1c, 0x00, 0x00]), // Storage address
-          Buffer.from(chunk)
-        ]));
+      if (i === 0) {
+        // First packet includes storage address
+        packet[2] = 0x00;
+        packet[3] = 0x1c;
+        packet[4] = 0x00;
+        packet[5] = 0x00;
+        packet.set(chunk, 6);
       } else {
-        // Other packets just need command and index
-        packets.push(Buffer.concat([
-          Buffer.from([COMMANDS.SEND_BITMAP, packetIndex & 0xff]),
-          Buffer.from(chunk)
-        ]));
+        packet.set(chunk, 2);
       }
+
+      packets.push(packet);
     }
 
     return packets;
   }
 
-    // Image Transmission
-    async sendBMPImage(imageData: BMPImageData): Promise<boolean> {
-        if (!this.isConnected) return false;
+  private convertTo1BitBMP(data: Uint8Array): Uint8Array {
+    // Skip BMP header (54 bytes) and get to the actual image data
+    const imageData = data.slice(54);
     
-        // Validate image width
-        if (imageData.width > 488) {
-          console.error('Image width exceeds display width limit of 488 pixels');
-          return false;
-        }
+    // For 1-bit BMP, each byte represents 8 pixels
+    // The data is stored in rows, with each row padded to 4-byte boundary
+    const width = 576;
+    const height = 136;
+    const bytesPerRow = Math.ceil(width / 8);
+    const paddedBytesPerRow = Math.ceil(bytesPerRow / 4) * 4;
     
-        try {
-            console.log('Creating BMP packets');
-            console.log('Image data length:', imageData.data.length);
-          const packets = this.createBMPPackets(imageData.data);
+    const bmpData = new Uint8Array(bytesPerRow * height);
+    
+    // Process each row
+    for (let y = 0; y < height; y++) {
+      const sourceRow = imageData.slice(y * paddedBytesPerRow, (y + 1) * paddedBytesPerRow);
+      const targetRow = bmpData.slice(y * bytesPerRow, (y + 1) * bytesPerRow);
+      
+      // Copy row data, skipping padding
+      for (let x = 0; x < bytesPerRow; x++) {
+        targetRow[x] = sourceRow[x];
+      }
+    }
+    
+    return bmpData;
+  }
 
-          console.log('Sending BMP image:', packets.length);
-    
-          // Send packets sequentially - left side first, then right
-          for (let i = 0; i < packets.length; i++) {
-            // Send to left side and wait for acknowledgment
-            console.log('Sending BMP packet to left side ' + i);
-            await this.sendCommand(packets[i], true, false);
-            
-            // After left side acknowledges, send to right side
-            console.log('Sending BMP packet to right side ' + i);
-            await this.sendCommand(packets[i], false, true);
-            
-            await new Promise(resolve => setTimeout(resolve, )); // Small delay between packets
-          }
-    
-          // Send transmission end command - left then right
-          const endCommand = new Uint8Array(1);
-          endCommand[0] = COMMANDS.BMP_TRANSMISSION_END[0];
-          await this.sendCommand(endCommand, true, false);
-          await this.sendCommand(endCommand, false, true);
-    
-          // Send CRC check - left then right
-          const crc = this.calculateCRC32(imageData.data);
-          const crcCommand = new Uint8Array([COMMANDS.CRC_CHECK, ...this.uint32ToBytes(crc)]);
-          await this.sendCommand(crcCommand, true, false);
-          await this.sendCommand(crcCommand, false, true);
-          console.log('BMP image sent successfully');
-          return true;
-        } catch (error) {
-          console.error(error);
-          return false;
-        }
+  async sendBMPImage(imageData: BMPImageData): Promise<boolean> {
+    if (!this.isConnected) return false;
+
+    // Validate image dimensions
+    if (imageData.width !== 576 || imageData.height !== 136) {
+      console.error('Image must be 576x136 pixels');
+      return false;
+    }
+
+    try {
+      console.log('Starting BMP transmission...');
+      const bmpData = this.convertTo1BitBMP(imageData.data);
+      console.log('Converted to 1-bit BMP, data length:', bmpData.length);
+      
+      const packets = this.createBMPPackets(bmpData);
+      console.log('Created', packets.length, 'packets');
+
+      // Send packets sequentially - left side first, then right
+      for (let i = 0; i < packets.length; i++) {
+        console.log(`Sending packet ${i + 1}/${packets.length}`);
+        await this.sendCommand(packets[i], true, false);
+        await this.sendCommand(packets[i], false, true);
+        await new Promise(resolve => setTimeout(resolve, 200)); // Increased delay
       }
 
-      private uint32ToBytes(value: number): number[] {
-        return [
-          (value >>> 24) & 0xFF,
-          (value >>> 16) & 0xFF,
-          (value >>> 8) & 0xFF,
-          value & 0xFF
-        ];
-      }
-    
+      console.log('Sending end command...');
+      // Send transmission end command
+      const endCommand = new Uint8Array([0x20, 0x0d, 0x0e]);
+      await this.sendCommand(endCommand, true, false);
+      await this.sendCommand(endCommand, false, true);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Wait for response
+
+      console.log('Sending CRC check...');
+      // Calculate CRC including storage address
+      const crcData = new Uint8Array([0x00, 0x1c, 0x00, 0x00, ...bmpData]);
+      const crc = this.calculateCRC32(crcData);
+      const crcCommand = new Uint8Array([COMMANDS.CRC_CHECK, ...this.uint32ToBytes(crc)]);
+      await this.sendCommand(crcCommand, true, false);
+      await this.sendCommand(crcCommand, false, true);
+
+      console.log('BMP transmission complete');
+      return true;
+    } catch (error) {
+      console.error('Failed to send BMP:', error);
+      return false;
+    }
+  }
+
+  private uint32ToBytes(value: number): number[] {
+    return [
+      (value >>> 24) & 0xFF,
+      (value >>> 16) & 0xFF,
+      (value >>> 8) & 0xFF,
+      value & 0xFF
+    ];
+  }
 
   // Utility methods
   private base64ToUint8Array(base64: string): Uint8Array {

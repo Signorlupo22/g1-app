@@ -1,5 +1,8 @@
 import { ThemedText } from '@/components/ThemedText';
 import { Button } from '@/components/ui/button';
+
+import RNFS from 'react-native-fs';
+
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
@@ -268,25 +271,42 @@ const G1GlassesApp: React.FC = () => {
         </View>
     );
 
+    
+
     const sendBMP = async () => {
         if (!g1Manager.current || !isConnected) return;
-        const width = 488;  // Match the display width
-        const height = 64;  // Example height
-        const imageData = new Uint8Array(width * height * 3); // RGB format
+        const width = 576;
+        const height = 136;
       
-        // Fill with a test pattern - black and white stripes
-        for (let i = 0; i < imageData.length; i++) {
-          // Create vertical stripes every 8 pixels
-          const x = (i % width);
-          imageData[i] = (x % 16 < 8) ? 255 : 0; // White if x mod 16 < 8, black otherwise
-        }
-        await g1Manager.current.sendBMPImage({
+        const bmpPath = RNFS.MainBundlePath + '/test.bmp'; // iOS
+        // Su Android: usa `RNFS.DocumentDirectoryPath + '/test.bmp'` se copiato lì
+      
+        try {
+          const imageDataBase64 = await RNFS.readFile(bmpPath, 'base64');
+          const buffer = Uint8Array.from(atob(imageDataBase64), c => c.charCodeAt(0));
+      
+          // Verifica intestazione BMP
+          if (buffer[0] !== 0x42 || buffer[1] !== 0x4D) {
+            console.error('Not a valid BMP file');
+            return;
+          }
+      
+          const imageData = buffer.slice(54); // dopo header
+          for (let i = 0; i < imageData.length; i++) {
+            const x = (i % width);
+            imageData[i] = (x % 16 < 8) ? 255 : 0;
+          }
+      
+          await g1Manager.current.sendBMPImage({
             width,
             height,
             data: imageData
-        });
-    };
-
+          });
+      
+        } catch (err) {
+          console.error('Errore lettura BMP:', err.message);
+        }
+      };
 
     const printEvents = () => {
         if (!g1Manager.current || !isConnected) return;
