@@ -308,16 +308,20 @@ const G1GlassesApp: React.FC = () => {
         const width = 576;
         const height = 136;
 
-        const imageDataBase64 = await loadBMPImageAsBase64('../../assets/images/test.bmp');
+        //const imageDataBase64 = await loadBMPImageAsBase64('../../assets/images/test.bmp');
+
+        const imageDataBase641 = await loadBMPImageAsBase64('../../assets/images/test2.bmp');
+        const imageDataBase642 = await loadBMPImageAsBase64('../../assets/images/test2.bmp');
 
         try {
-            const buffer = new Uint8Array(Buffer.from(imageDataBase64 || '', 'base64'));
+            const buffer1 = new Uint8Array(Buffer.from(imageDataBase641 || '', 'base64'));
 
             await g1Manager.current.sendBMPImage({
                 width,
                 height,
-                data: buffer
+                data: buffer1
             });
+
 
         } catch (err) {
             console.error('Errore lettura BMP:', err.message);
@@ -330,16 +334,17 @@ const G1GlassesApp: React.FC = () => {
         const width = 576;
         const height = 136;
 
-        const imageDataBase64 = await loadBMPImageAsBase64('../../assets/images/test.bmp');
+        const imageDataBase641 = await loadBMPImageAsBase64('../../assets/images/test2.bmp');
 
         try {
-            const buffer = new Uint8Array(Buffer.from(imageDataBase64 || '', 'base64'));
+            const buffer1 = new Uint8Array(Buffer.from(imageDataBase641 || '', 'base64'));
 
             await g1Manager.current.showImage({
                 width,
                 height,
-                data: buffer
-            });
+                data: buffer1
+            },);
+
 
         } catch (err) {
             console.error('Errore lettura BMP:', err.message);
