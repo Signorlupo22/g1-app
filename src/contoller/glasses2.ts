@@ -462,6 +462,13 @@ export class EvenRealitiesG1Manager {
     console.log('Lines:', lines);
     const screens = this.splitIntoScreens(lines);
     console.log('Screens:', screens);
+
+    // Calculate display parameters
+    const DISPLAY_WIDTH = 488;
+    const FONT_SIZE = 21;
+    const LINES_PER_SCREEN = 5;
+    const LINE_HEIGHT = FONT_SIZE * 1.2; // Add some spacing between lines
+
     for (let screenIndex = 0; screenIndex < screens.length; screenIndex++) {
       const packets = this.createTextPackets(screens[screenIndex]);
 
@@ -481,15 +488,21 @@ export class EvenRealitiesG1Manager {
         // Override the screen status in the packet
         packet[4] = screenStatus;
 
-        packet[5] = x & 0xFF; // x position LSB
-        packet[6] = (x >> 8) & 0xFF; // x position MSB
-        packet[7] = y & 0xFF; // y position LSB
-        packet[8] = (y >> 8) & 0xFF; // y position MSB
+        // Calculate position based on screen index and line number
+        const screenY = y + (screenIndex * LINES_PER_SCREEN * LINE_HEIGHT);
+        
+        // Ensure x position is within display width
+        const adjustedX = Math.min(x, DISPLAY_WIDTH - (FONT_SIZE * 0.6)); // 0.6 is approximate character width ratio
+        
+        // Set position in packet
+        packet[5] = adjustedX & 0xFF; // x position LSB
+        packet[6] = (adjustedX >> 8) & 0xFF; // x position MSB
+        packet[7] = screenY & 0xFF; // y position LSB
+        packet[8] = (screenY >> 8) & 0xFF; // y position MSB
 
         await this.sendCommand(packet);
         await new Promise(resolve => setTimeout(resolve, 150));
       }
-
     }
 
     return true;
